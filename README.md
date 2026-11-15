@@ -24,3 +24,7 @@ cp .env.example .env.local
 npm install && npm run dev
 npm test
 ```
+
+## Database schema
+
+All tables live in their own Postgres schema, `studyrooms`, rather than `public`, so this app can share one Supabase project with my other demo apps. After running `supabase/schema.sql`, add `studyrooms` under **Supabase → Project Settings → Data API → Exposed schemas**. The app selects it through `db: { schema }` in `src/lib/supabase/config.ts`.

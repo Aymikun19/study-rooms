@@ -1,4 +1,5 @@
 "use client";
+import { DB_SCHEMA } from "@/lib/supabase/config";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -21,10 +22,10 @@ export function Room({ room, initialMessages, me }: { room: RoomRow; initialMess
   useEffect(() => {
     const channel = supabase
       .channel(`room:${room.id}`, { config: { presence: { key: me.id } } })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${room.id}` }, (p) =>
+      .on("postgres_changes", { event: "INSERT", schema: DB_SCHEMA, table: "messages", filter: `room_id=eq.${room.id}` }, (p) =>
         setMessages((m) => (m.some((x) => x.id === (p.new as Msg).id) ? m : [...m, p.new as Msg])),
       )
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${room.id}` }, (p) => {
+      .on("postgres_changes", { event: "UPDATE", schema: DB_SCHEMA, table: "rooms", filter: `id=eq.${room.id}` }, (p) => {
         const r = p.new as RoomRow;
         setTimer({ mode: r.timer_mode, durationSec: r.timer_duration_sec, startedAt: r.timer_started_at });
       })
