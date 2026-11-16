@@ -1,4 +1,6 @@
 "use client";
+
+import { Brain, Coffee, SendHorizontal, Users } from "lucide-react";
 import { DB_SCHEMA } from "@/lib/supabase/config";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -83,15 +85,18 @@ export function Room({ room, initialMessages, me }: { room: RoomRow; initialMess
         </div>
         <form onSubmit={send} className="flex gap-2 border-t border-stone-100 p-3">
           <input value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} placeholder="Message the room…" className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-sm" />
-          <button className="btn">Send</button>
+          <button className="btn" aria-label="Send message"><SendHorizontal size={16} /></button>
         </form>
       </section>
 
       <aside className="grid h-fit gap-4">
         <div className="card p-5 text-center">
-          <p className="text-xs font-medium uppercase tracking-widest text-stone-500">{timer.mode === "focus" ? "Focus" : "Break"}</p>
+          <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-stone-500">
+            {timer.mode === "focus" ? <Brain size={14} aria-hidden /> : <Coffee size={14} aria-hidden />}
+            {timer.mode === "focus" ? "Focus" : "Break"}
+          </p>
           <p className="my-2 font-mono text-5xl font-bold tabular-nums">{mmss(left)}</p>
-          <p className="mb-3 text-xs text-stone-500">{running ? "Synced for everyone in the room" : left === 0 ? "Time's up! 🎉" : "Paused"}</p>
+          <p className="mb-3 text-xs text-stone-500">{running ? "Synced for everyone in the room" : left === 0 ? "Time's up!" : "Paused"}</p>
           <div className="flex justify-center gap-2">
             <button onClick={() => setTimerRemote("focus", true)} className="btn !py-1.5 text-xs">Focus 25</button>
             <button onClick={() => setTimerRemote("break", true)} className="btn-outline !py-1.5 text-xs">Break 5</button>
@@ -99,10 +104,10 @@ export function Room({ room, initialMessages, me }: { room: RoomRow; initialMess
           </div>
         </div>
         <div className="card p-5">
-          <p className="text-sm font-medium">Online now ({online.length})</p>
+          <p className="inline-flex items-center gap-1.5 text-sm font-medium"><Users size={16} aria-hidden /> Online now ({online.length})</p>
           <ul className="mt-2 grid gap-1 text-sm">
             {online.map((u) => (
-              <li key={u.id} className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" /> {u.name}{u.id === me.id && " (you)"}</li>
+              <li key={u.id} className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden /> {u.name}{u.id === me.id && " (you)"}</li>
             ))}
           </ul>
         </div>

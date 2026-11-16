@@ -1,3 +1,5 @@
+<img src="public/logo.svg" alt="" width="64" height="64">
+
 # StudyRooms
 
 Realtime virtual study rooms. Join a room for your course, chat with classmates, see who's online, and run a **shared Pomodoro timer** that stays in sync for everyone.

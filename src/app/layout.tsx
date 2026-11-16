@@ -10,7 +10,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <header className="border-b border-stone-200 bg-white">
           <nav className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-            <Link href="/" className="font-semibold"><span className="text-accent">●</span> StudyRooms</Link>
+            <Link href="/" className="flex items-center gap-2 font-semibold">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="" width={24} height={24} className="h-6 w-6" />
+            StudyRooms</Link>
             <form action="/auth/signout" method="post"><button className="text-sm text-stone-500">Sign out</button></form>
           </nav>
         </header>
