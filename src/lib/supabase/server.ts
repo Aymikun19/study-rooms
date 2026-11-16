@@ -1,12 +1,12 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
-import { DB_SCHEMA } from "./config";
+import { DB_SCHEMA, SUPABASE_KEY } from "./config";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 export async function createClient() {
   const cookieStore = await cookies();
-  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, SUPABASE_KEY, {
     db: { schema: DB_SCHEMA },
     cookies: {
       getAll: () => cookieStore.getAll(),
