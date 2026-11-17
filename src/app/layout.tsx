@@ -1,23 +1,30 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
+import { brand } from "@/lib/brand";
+import { SITE_URL } from "@/lib/supabase/config";
+import { createClient } from "@/lib/supabase/server";
+import { SiteFooter, SiteHeader } from "@/components/kit/SiteHeader";
 
-export const metadata: Metadata = { title: "StudyRooms", description: "Realtime study rooms with chat, presence and a shared Pomodoro timer." };
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  title: { default: `${brand.name}: ${brand.short}`, template: `%s · ${brand.name}` },
+  description: brand.description,
+  openGraph: { title: brand.name, description: brand.description, siteName: brand.name, type: "website" },
+};
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   return (
-    <html lang="en">
-      <body>
-        <header className="border-b border-stone-200 bg-white">
-          <nav className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="" width={24} height={24} className="h-6 w-6" />
-            StudyRooms</Link>
-            <form action="/auth/signout" method="post"><button className="text-sm text-stone-500">Sign out</button></form>
-          </nav>
-        </header>
-        <div className="mx-auto max-w-5xl px-4 py-6">{children}</div>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <body className="flex min-h-screen flex-col">
+        <SiteHeader email={user?.email} />
+        <main className={`mx-auto w-full flex-1 px-4 py-8 ${brand.width}`}>{children}</main>
+        <SiteFooter />
       </body>
     </html>
   );

@@ -17,3 +17,17 @@ describe("timer", () => {
     expect(mmss(61)).toBe("01:01");
   });
 });
+
+describe("progress and focus counts", () => {
+  it("reports progress through a phase", async () => {
+    const { progress } = await import("./timer");
+    const start = Date.parse("2026-11-17T10:00:00Z");
+    expect(progress({ mode: "focus", durationSec: 1500, startedAt: new Date(start).toISOString() }, start + 750_000)).toBeCloseTo(0.5);
+  });
+  it("counts today's and this week's sessions", async () => {
+    const { focusCounts } = await import("./timer");
+    const now = new Date("2026-11-17T12:00:00");
+    const log = [new Date("2026-11-17T09:00:00").toISOString(), new Date("2026-11-14T09:00:00").toISOString(), new Date("2026-10-01T09:00:00").toISOString()];
+    expect(focusCounts(log, now)).toEqual({ today: 1, week: 2 });
+  });
+});

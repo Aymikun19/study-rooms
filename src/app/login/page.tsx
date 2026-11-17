@@ -1,10 +1,35 @@
+import { Check } from "lucide-react";
+import { brand } from "@/lib/brand";
 import { AuthForm } from "./AuthForm";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; mode?: string }> }) {
+  const { next, mode } = await searchParams;
   return (
-    <main className="grid min-h-[80vh] place-items-center px-4">
-      <AuthForm next={next ?? "/"} />
-    </main>
+    <div className="grid min-h-[75vh] place-items-center py-4">
+      <div className="card grid w-full max-w-4xl overflow-hidden lg:grid-cols-2">
+      <section className="hidden min-h-[560px] flex-col justify-between gap-10 bg-accent p-10 text-white lg:flex">
+        <div className="flex items-center gap-3 text-lg font-semibold">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="" className="size-10 rounded-xl ring-2 ring-white/30" />
+          {brand.name}
+        </div>
+        <div className="grid max-w-md gap-6">
+          <p className="text-3xl font-semibold leading-tight tracking-tight">{brand.tagline}</p>
+          <ul className="grid gap-3 text-white/90">
+            {brand.features.slice(0, 3).map((f) => (
+              <li key={f.title} className="flex gap-3">
+                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-white/20"><Check size={13} aria-hidden /></span>
+                {f.title}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="text-sm text-white/70">Built by Olopade Oreoluwa</p>
+      </section>
+      <section className="grid place-items-center px-6 py-12 sm:px-12">
+        <AuthForm next={next ?? "/"} initialMode={mode === "signup" ? "signup" : "signin"} />
+      </section>
+      </div>
+    </div>
   );
 }

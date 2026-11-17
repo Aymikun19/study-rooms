@@ -30,3 +30,12 @@ export async function requireUser() {
   if (!user) redirect("/login");
   return { supabase, user };
 }
+
+/** Returns the signed-in user, or null for visitors. */
+export async function getUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return { supabase, user };
+}
