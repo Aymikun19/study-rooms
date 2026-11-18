@@ -147,7 +147,9 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
     }, 1000);
     return () => clearInterval(t);
   }, [room.name]);
-  useEffect(() => bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [messages.length]);
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages.length]);
 
   const left = remaining(timer, now);
   const running = Boolean(timer.startedAt) && left > 0;
@@ -243,7 +245,7 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
               return (
                 <div key={m.id}>
                   {newDay && (
-                    <div className="my-4 flex items-center gap-3 text-xs text-stone-400">
+                    <div className="my-4 flex items-center gap-3 text-xs text-stone-400" suppressHydrationWarning>
                       <span className="h-px flex-1 bg-stone-200" /> {dayLabel(m.created_at)} <span className="h-px flex-1 bg-stone-200" />
                     </div>
                   )}
@@ -253,7 +255,7 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
                     </span>
                     <div className={`grid max-w-[75%] gap-1 ${mine ? "justify-items-end" : ""}`}>
                       {!grouped && (
-                        <p className="text-xs text-stone-500"><span className="font-medium text-stone-700">{mine ? "You" : m.author}</span> · {time(m.created_at)}</p>
+                        <p className="text-xs text-stone-500" suppressHydrationWarning><span className="font-medium text-stone-700">{mine ? "You" : m.author}</span> · {time(m.created_at)}</p>
                       )}
                       {attachmentOf(m) ? (
                         <div className={`rounded-2xl p-1.5 ${mine ? "rounded-tr-md bg-accent text-white" : "rounded-tl-md bg-stone-100"}`}>
