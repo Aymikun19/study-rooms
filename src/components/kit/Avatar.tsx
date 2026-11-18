@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { avatarUrl, initials } from "@/lib/avatar";
 
 /**
@@ -28,6 +28,12 @@ export function Avatar({
   const src = hasPhoto ? avatarUrl(userId, version) : null;
   const [state, setState] = useState<{ src: string | null; ok: boolean }>({ src: null, ok: false });
   const loaded = state.src === src && state.ok;
+  const img = useRef<HTMLImageElement>(null);
+  // An image that finished loading before React hydrated never fires onLoad, so check once on mount.
+  useEffect(() => {
+    const el = img.current;
+    if (el?.complete && el.naturalWidth > 0) setState({ src, ok: true });
+  }, [src]);
   return (
     <span
       className={`relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full font-semibold ${tone === "accent" ? "bg-accent text-white" : "bg-stone-200 text-stone-700"} ${className}`}
@@ -38,6 +44,7 @@ export function Avatar({
       {src && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
+          ref={img}
           src={src}
           alt=""
           width={size}
