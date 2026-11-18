@@ -4,6 +4,7 @@ import { Flame, Loader2, Lock, SendHorizontal, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DB_SCHEMA } from "@/lib/supabase/config";
+import { Avatar } from "@/components/kit/Avatar";
 import { createClient } from "@/lib/supabase/client";
 import { focusCounts, logFocusSession, readFocusLog, remaining, type TimerPatch, type TimerState } from "@/lib/timer";
 import { BUCKET, roomPath } from "@/lib/files";
@@ -28,7 +29,7 @@ const attachmentOf = (m: Msg): Attachment | null =>
   m.kind && m.kind !== "text" && m.attachment_path
     ? { kind: m.kind, path: m.attachment_path, name: m.attachment_name ?? "file", type: m.attachment_type ?? "", size: m.attachment_size ?? 0, duration: m.duration_sec ?? undefined }
     : null;
-type Me = { id: string; name: string };
+type Me = { id: string; name: string; v?: number | null };
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 const dayLabel = (iso: string) => {
@@ -39,7 +40,6 @@ const dayLabel = (iso: string) => {
   if (d.toDateString() === yest.toDateString()) return "Yesterday";
   return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
 };
-const initials = (n: string) => n.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 
 function beep() {
   try {
@@ -65,6 +65,7 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
   const router = useRouter();
   const [messages, setMessages] = useState(initialMessages);
   const [online, setOnline] = useState<Me[]>([]);
+  const versionOf = (id: string) => (id === me.id ? me.v : online.find((u) => u.id === id)?.v);
   const [typing, setTyping] = useState<Record<string, { name: string; at: number }>>({});
   const [timer, setTimer] = useState<TimerState>({ mode: room.timer_mode, durationSec: room.timer_duration_sec, startedAt: room.timer_started_at });
   const [now, setNow] = useState(() => Date.now());
@@ -256,9 +257,7 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
                     </div>
                   )}
                   <div className={`flex gap-2.5 ${mine ? "flex-row-reverse" : ""} ${grouped ? "mt-1" : "mt-4"}`}>
-                    <span className={`grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${grouped ? "invisible" : ""} ${mine ? "bg-accent text-white" : "bg-stone-200 text-stone-700"}`} aria-hidden>
-                      {initials(m.author)}
-                    </span>
+                    <Avatar userId={m.user_id} name={m.author} version={versionOf(m.user_id)} hasPhoto={versionOf(m.user_id) !== null} size={32} tone={mine ? "accent" : "muted"} className={grouped ? "invisible" : ""} />
                     <div className={`grid max-w-[75%] gap-1 ${mine ? "justify-items-end" : ""}`}>
                       {!grouped && (
                         <p className="text-xs text-stone-500" suppressHydrationWarning><span className="font-medium text-stone-700">{mine ? "You" : m.author}</span> · {time(m.created_at)}</p>
@@ -323,8 +322,8 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
             <ul className="mt-3 grid gap-2 text-sm">
               {online.map((u) => (
                 <li key={u.id} className="flex items-center gap-2.5">
-                  <span className="relative grid size-7 place-items-center rounded-full bg-stone-200 text-[10px] font-semibold text-stone-700">
-                    {initials(u.name)}
+                  <span className="relative">
+                    <Avatar userId={u.id} name={u.name} version={u.v} hasPhoto={u.v !== null} size={28} />
                     <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-white bg-emerald-500" />
                   </span>
                   {u.name}{u.id === me.id && <span className="text-stone-400">(you)</span>}

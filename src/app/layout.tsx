@@ -27,7 +27,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="flex min-h-screen flex-col">
-        <SiteHeader email={user?.email} />
+        <SiteHeader email={user?.email} userId={user?.id} name={user?.user_metadata?.full_name} avatarV={user?.user_metadata?.avatar_v ?? null} />
         <main className={`mx-auto w-full flex-1 px-4 py-8 ${brand.width}`}>{children}</main>
         <SiteFooter />
       </body>

@@ -2,6 +2,7 @@ import { LogOut, Mail } from "lucide-react";
 import { requireUser } from "@/lib/supabase/server";
 import { signOutEverywhere } from "./actions";
 import { NameForm, PasswordForm } from "./Forms";
+import { AvatarForm } from "./AvatarForm";
 
 export const metadata = { title: "Account" };
 
@@ -19,6 +20,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
       </div>
       {reset && <p role="status" className="card border-accent/30 bg-accent/5 p-4 text-sm">You are signed in from your reset link. Choose a new password below.</p>}
       <PasswordForm highlight={Boolean(reset)} />
+      <AvatarForm userId={user.id} name={name} version={user.user_metadata?.avatar_v ?? null} />
       <NameForm name={name} />
       <form action={signOutEverywhere} className="card flex flex-wrap items-center justify-between gap-3 p-6">
         <div>

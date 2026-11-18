@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { LogOut, Settings } from "lucide-react";
 import { brand } from "@/lib/brand";
+import { Avatar } from "./Avatar";
 
-export function SiteHeader({ email }: { email?: string | null }) {
+export function SiteHeader({ email, userId, name, avatarV }: { email?: string | null; userId?: string; name?: string | null; avatarV?: number | null }) {
   const nav = brand.nav.filter((n) => email || n.public);
-  const initials = (email ?? "?").slice(0, 2).toUpperCase();
   return (
     <header className="sticky top-0 z-30 border-b border-stone-200/70 bg-white/80 backdrop-blur print:hidden">
       <nav className={`mx-auto flex h-16 items-center justify-between gap-4 px-4 ${brand.width}`}>
@@ -25,12 +25,15 @@ export function SiteHeader({ email }: { email?: string | null }) {
             <details className="relative ml-1">
               <summary
                 aria-label="Account menu"
-                className="grid size-9 cursor-pointer list-none place-items-center rounded-full bg-accent text-xs font-semibold text-white ring-offset-2 transition hover:ring-2 hover:ring-accent/40 [&::-webkit-details-marker]:hidden"
+                className="grid cursor-pointer list-none place-items-center rounded-full ring-offset-2 transition hover:ring-2 hover:ring-accent/40 [&::-webkit-details-marker]:hidden"
               >
-                {initials}
+                <Avatar userId={userId} name={name || email} version={avatarV} hasPhoto={Boolean(avatarV)} size={36} tone="accent" />
               </summary>
               <div className="absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl">
-                <p className="truncate px-3 py-2 text-xs text-stone-500">Signed in as<br /><span className="text-sm font-medium text-stone-800">{email}</span></p>
+                <div className="flex items-center gap-3 px-3 py-2">
+                  <Avatar userId={userId} name={name || email} version={avatarV} hasPhoto={Boolean(avatarV)} size={36} tone="accent" />
+                  <p className="min-w-0 text-xs text-stone-500">{name && <span className="block truncate text-sm font-medium text-stone-800">{name}</span>}<span className="block truncate">{email}</span></p>
+                </div>
                 <div className="my-1 border-t border-stone-100 sm:hidden" />
                 {nav.map((n) => (
                   <Link key={n.href} href={n.href} className="block rounded-lg px-3 py-2 hover:bg-stone-100 sm:hidden">
