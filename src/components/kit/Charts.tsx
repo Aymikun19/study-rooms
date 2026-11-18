@@ -29,8 +29,10 @@ export function BarChart({
       </div>
       <div className="flex gap-1.5 text-[11px] text-stone-500">
         {data.map((d, i) => (
-          <span key={i} className="flex-1 truncate text-center">
-            {data.length > 12 && i % Math.ceil(data.length / 8) !== 0 ? "" : d.label}
+          <span key={i} className="relative h-4 flex-1">
+            {(data.length <= 8 || i % Math.ceil(data.length / 7) === 0) && (
+              <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap">{d.label}</span>
+            )}
           </span>
         ))}
       </div>

@@ -5,7 +5,7 @@ export function Stat({ label, value, hint, icon: Icon }: { label: string; value:
     <div className="card flex items-start justify-between gap-3 p-4">
       <div className="min-w-0">
         <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</p>
-        <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{value}</p>
+        <p className="mt-1 truncate text-xl font-semibold tabular-nums tracking-tight lg:text-2xl" title={value}>{value}</p>
         {hint && <p className="mt-0.5 truncate text-xs text-stone-500">{hint}</p>}
       </div>
       {Icon && (

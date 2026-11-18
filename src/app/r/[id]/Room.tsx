@@ -1,15 +1,30 @@
 "use client";
 
-import { Bell, BellOff, Brain, Coffee, Flame, RotateCcw, SendHorizontal, Users } from "lucide-react";
+import { Bell, BellOff, Brain, Coffee, Flame, Loader2, Lock, RotateCcw, SendHorizontal, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DB_SCHEMA } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/client";
-import { focusCounts, logFocusSession, mmss, PRESETS, progress, readFocusLog, remaining, type TimerState } from "@/lib/timer";
+import { focusCounts, logFocusSession, mmss, progress, readFocusLog, remaining, type TimerState } from "@/lib/timer";
+import { BUCKET, roomPath } from "@/lib/files";
+import { AttachmentView, FilePicker, VoiceRecorder, type Attachment } from "./Media";
+import { TimerEditor } from "./TimerEditor";
 import { CopyButton } from "@/components/kit/CopyButton";
 
-type Msg = { id: number; user_id: string; author: string; body: string; created_at: string };
-type RoomRow = { id: string; name: string; topic: string | null; timer_mode: "focus" | "break"; timer_duration_sec: number; timer_started_at: string | null };
+type Msg = {
+  id: number; user_id: string; author: string; body: string; created_at: string;
+  kind?: "text" | "voice" | "file"; attachment_path?: string | null; attachment_name?: string | null;
+  attachment_type?: string | null; attachment_size?: number | null; duration_sec?: number | null;
+};
+type RoomRow = {
+  id: string; name: string; topic: string | null; visibility?: "public" | "private"; focus_minutes?: number; break_minutes?: number;
+  timer_mode: "focus" | "break"; timer_duration_sec: number; timer_started_at: string | null;
+};
+
+const attachmentOf = (m: Msg): Attachment | null =>
+  m.kind && m.kind !== "text" && m.attachment_path
+    ? { kind: m.kind, path: m.attachment_path, name: m.attachment_name ?? "file", type: m.attachment_type ?? "", size: m.attachment_size ?? 0, duration: m.duration_sec ?? undefined }
+    : null;
 type Me = { id: string; name: string };
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -52,6 +67,10 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
   const [text, setText] = useState("");
   const [alerts, setAlerts] = useState(false);
   const [counts, setCounts] = useState({ today: 0, week: 0 });
+  const [lengths, setLengths] = useState({ focus: room.focus_minutes ?? 25, brk: room.break_minutes ?? 5 });
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const lastTyping = useRef(0);
@@ -80,6 +99,7 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
       .on("postgres_changes", { event: "UPDATE", schema: DB_SCHEMA, table: "rooms", filter: `id=eq.${room.id}` }, (p) => {
         const r = p.new as RoomRow;
         setTimer({ mode: r.timer_mode, durationSec: r.timer_duration_sec, startedAt: r.timer_started_at });
+        if (r.focus_minutes && r.break_minutes) setLengths({ focus: r.focus_minutes, brk: r.break_minutes });
       })
       .on("broadcast", { event: "typing" }, ({ payload }) => {
         const p = payload as Me;
@@ -132,6 +152,41 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
   const left = remaining(timer, now);
   const running = Boolean(timer.startedAt) && left > 0;
 
+  // Signed URLs for voice notes and files (the bucket is private; links expire after an hour).
+  useEffect(() => {
+    const missing = messages.map((m) => m.attachment_path).filter((p): p is string => Boolean(p) && !urls[p as string]);
+    if (!missing.length) return;
+    supabase.storage.from(BUCKET).createSignedUrls(missing, 3600).then(({ data }) => {
+      if (!data) return;
+      setUrls((u) => ({ ...u, ...Object.fromEntries(data.filter((d) => d.signedUrl && d.path).map((d) => [d.path as string, d.signedUrl as string])) }));
+    });
+  }, [messages, urls, supabase]);
+
+  async function sendAttachment(kind: "voice" | "file", blob: Blob, name: string, duration?: number) {
+    setSendError(null);
+    setUploading(kind === "voice" ? "Sending voice note…" : `Uploading ${name}…`);
+    const path = roomPath(room.id, me.id, name);
+    const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: blob.type || "application/octet-stream" });
+    if (upErr) {
+      setUploading(null);
+      setSendError(`Upload failed: ${upErr.message}`);
+      return;
+    }
+    const { error } = await supabase.from("messages").insert({
+      room_id: room.id, author: me.name, body: "", kind, attachment_path: path, attachment_name: name,
+      attachment_type: blob.type || "application/octet-stream", attachment_size: blob.size, duration_sec: duration ?? null,
+    });
+    setUploading(null);
+    if (error) setSendError(error.message);
+  }
+
+  async function saveLengths(focus: number, brk: number) {
+    const patch: Record<string, unknown> = { focus_minutes: focus, break_minutes: brk };
+    if (!timer.startedAt || remaining(timer, Date.now()) === 0) patch.timer_duration_sec = (timer.mode === "focus" ? focus : brk) * 60;
+    await supabase.from("rooms").update(patch).eq("id", room.id);
+    setLengths({ focus, brk });
+  }
+
   const sendTyping = useCallback(() => {
     if (Date.now() - lastTyping.current < 2000) return;
     lastTyping.current = Date.now();
@@ -149,7 +204,7 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
   async function setTimerRemote(mode: "focus" | "break", start: boolean) {
     await supabase
       .from("rooms")
-      .update({ timer_mode: mode, timer_duration_sec: PRESETS[mode], timer_started_at: start ? new Date().toISOString() : null })
+      .update({ timer_mode: mode, timer_duration_sec: (mode === "focus" ? lengths.focus : lengths.brk) * 60, timer_started_at: start ? new Date().toISOString() : null })
       .eq("id", room.id);
   }
 
@@ -170,7 +225,7 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Link href="/" className="text-sm text-stone-500 hover:text-accent">All rooms</Link>
-          <h1 className="page-title mt-1">{room.name}</h1>
+          <h1 className="page-title mt-1 flex items-center gap-2">{room.name}{room.visibility === "private" && <span className="badge"><Lock size={12} aria-hidden /> Private</span>}</h1>
           {room.topic && <p className="mt-1 text-sm text-stone-500">{room.topic}</p>}
         </div>
         <CopyButton value={link} label="Copy invite link" />
@@ -200,7 +255,13 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
                       {!grouped && (
                         <p className="text-xs text-stone-500"><span className="font-medium text-stone-700">{mine ? "You" : m.author}</span> · {time(m.created_at)}</p>
                       )}
-                      <p className={`whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-sm ${mine ? "rounded-tr-md bg-accent text-white" : "rounded-tl-md bg-stone-100"}`}>{m.body}</p>
+                      {attachmentOf(m) ? (
+                        <div className={`rounded-2xl p-1.5 ${mine ? "rounded-tr-md bg-accent text-white" : "rounded-tl-md bg-stone-100"}`}>
+                          <AttachmentView a={attachmentOf(m)!} url={urls[m.attachment_path!]} mine={mine} />
+                        </div>
+                      ) : (
+                        <p className={`whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-sm ${mine ? "rounded-tr-md bg-accent text-white" : "rounded-tl-md bg-stone-100"}`}>{m.body}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -211,10 +272,20 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
           <p className="h-5 px-5 text-xs italic text-stone-500" aria-live="polite">
             {typers.length > 0 && `${typers.slice(0, 2).join(" and ")}${typers.length > 2 ? " and others" : ""} ${typers.length > 1 ? "are" : "is"} typing…`}
           </p>
-          <form onSubmit={send} className="flex gap-2 border-t border-stone-100 p-3">
+          {(uploading || sendError) && (
+            <p className={`flex items-center gap-2 px-5 pb-1 text-xs ${sendError ? "text-red-600" : "text-stone-500"}`} role="status">
+              {uploading && <Loader2 size={13} className="animate-spin" aria-hidden />} {sendError ?? uploading}
+            </p>
+          )}
+          <form onSubmit={send} className="relative flex items-center gap-1 border-t border-stone-100 p-3">
+            <FilePicker disabled={Boolean(uploading)} onPick={(f) => sendAttachment("file", f, f.name)} />
             <label className="sr-only" htmlFor="msg">Message</label>
-            <input id="msg" value={text} onChange={(e) => { setText(e.target.value); sendTyping(); }} maxLength={1000} placeholder="Message the room…" className="input" autoComplete="off" />
-            <button className="btn shrink-0" aria-label="Send message"><SendHorizontal size={16} aria-hidden /></button>
+            <input id="msg" value={text} onChange={(e) => { setText(e.target.value); sendTyping(); }} maxLength={1000} placeholder="Message the room…" className="input mx-1" autoComplete="off" />
+            {text.trim() ? (
+              <button className="btn shrink-0" aria-label="Send message"><SendHorizontal size={16} aria-hidden /></button>
+            ) : (
+              <VoiceRecorder disabled={Boolean(uploading)} onDone={(blob, secs) => sendAttachment("voice", blob, `voice-note.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm"}`, secs)} />
+            )}
           </form>
         </section>
 
@@ -236,13 +307,16 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
               </div>
             </div>
             <div className="flex flex-wrap justify-center gap-2">
-              <button onClick={() => setTimerRemote("focus", true)} className="btn !py-2 text-xs"><Brain size={14} aria-hidden /> Focus 25</button>
-              <button onClick={() => setTimerRemote("break", true)} className="btn-outline !py-2 text-xs"><Coffee size={14} aria-hidden /> Break 5</button>
+              <button onClick={() => setTimerRemote("focus", true)} className="btn !py-2 text-xs"><Brain size={14} aria-hidden /> Focus {lengths.focus}</button>
+              <button onClick={() => setTimerRemote("break", true)} className="btn-outline !py-2 text-xs"><Coffee size={14} aria-hidden /> Break {lengths.brk}</button>
               <button onClick={() => setTimerRemote(timer.mode, false)} className="btn-outline !py-2 text-xs" aria-label="Reset timer"><RotateCcw size={14} aria-hidden /></button>
             </div>
+            <div className="flex flex-wrap justify-center gap-1">
+            <TimerEditor focus={lengths.focus} brk={lengths.brk} onSave={saveLengths} />
             <button onClick={toggleAlerts} className="btn-ghost text-xs" aria-pressed={alerts}>
               {alerts ? <Bell size={14} aria-hidden /> : <BellOff size={14} aria-hidden />} {alerts ? "Alerts on" : "Turn on alerts"}
             </button>
+            </div>
           </section>
 
           <section className="card p-5" aria-label="Your focus stats">

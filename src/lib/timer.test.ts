@@ -31,3 +31,13 @@ describe("progress and focus counts", () => {
     expect(focusCounts(log, now)).toEqual({ today: 1, week: 2 });
   });
 });
+
+describe("clampMinutes", () => {
+  it("keeps focus and break inside their ranges", async () => {
+    const { clampMinutes } = await import("./timer");
+    expect(clampMinutes("focus", 0)).toBe(1);
+    expect(clampMinutes("focus", 500)).toBe(180);
+    expect(clampMinutes("break", 75)).toBe(60);
+    expect(clampMinutes("break", Number.NaN)).toBe(1);
+  });
+});

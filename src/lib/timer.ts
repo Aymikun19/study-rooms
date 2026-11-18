@@ -15,6 +15,15 @@ export function mmss(sec: number) {
 
 export const PRESETS = { focus: 25 * 60, break: 5 * 60 } as const;
 
+export const FOCUS_CHOICES = [15, 25, 30, 45, 50, 60, 90];
+export const BREAK_CHOICES = [3, 5, 10, 15, 20];
+
+/** Keep a minutes value inside the allowed range for a phase. */
+export function clampMinutes(mode: "focus" | "break", m: number) {
+  const max = mode === "focus" ? 180 : 60;
+  return Math.min(max, Math.max(1, Math.round(Number.isFinite(m) ? m : 1)));
+}
+
 /** Fraction of the current phase completed, 0..1. */
 export function progress(t: TimerState, now = Date.now()) {
   return t.durationSec ? 1 - remaining(t, now) / t.durationSec : 0;

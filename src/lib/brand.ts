@@ -1,4 +1,4 @@
-import { Bell, ChartNoAxesColumn, MessagesSquare, Timer, UserRoundCheck, Link2 } from "lucide-react";
+import { Bell, Lock, MessagesSquare, Paperclip, Timer, UserRoundCheck } from "lucide-react";
 
 export const brand = {
   name: "StudyRooms",
@@ -8,14 +8,14 @@ export const brand = {
   description:
     "Create a room for your course, invite your study group and work through shared Pomodoro sessions with live chat and presence.",
   cta: { href: "/login?mode=signup", label: "Open a study room" },
-  proof: ["Realtime", "Shared timer", "Free"],
+  proof: ["Public or private rooms", "Voice notes and files", "Free"],
   features: [
-    { icon: Timer, title: "Shared Pomodoro timer", text: "Everyone in the room sees the same focus and break countdown, kept in sync live." },
-    { icon: MessagesSquare, title: "Live chat", text: "Message the room in real time, with timestamps and typing indicators." },
+    { icon: Timer, title: "Adjustable shared timer", text: "Set focus and break lengths like an alarm clock. Everyone in the room sees the same countdown." },
+    { icon: MessagesSquare, title: "Chat with voice notes", text: "Type, or hold a quick voice note. Timestamps and typing indicators keep it feeling live." },
+    { icon: Lock, title: "Private rooms", text: "Lock a room with a password so only your study group can get in." },
+    { icon: Paperclip, title: "Share files", text: "Drop slides, past questions and photos of your notes into the room, up to 10 MB each." },
     { icon: UserRoundCheck, title: "Presence", text: "See who is in the room right now, so you know your group showed up." },
     { icon: Bell, title: "Phase alerts", text: "A sound and a browser notification when focus time ends or a break is over." },
-    { icon: ChartNoAxesColumn, title: "Focus stats", text: "Track focus sessions completed today and this week." },
-    { icon: Link2, title: "Invite by link", text: "Copy a room's link and drop it in your class group chat." },
   ],
   steps: [
     ["Create a room", "Name it after your course or topic."],
