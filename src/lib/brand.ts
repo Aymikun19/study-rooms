@@ -26,5 +26,5 @@ export const brand = {
   nav: [{ href: "/", label: "Rooms" }] as { href: string; label: string; public?: boolean }[],
   width: "max-w-6xl",
   repo: "https://github.com/Aymikun19/study-rooms",
-  preview: null as string | null,
+  preview: "/preview.webp" as string | null,
 };
