@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
+
+const ACCENT = "#7c3aed";
 import { brand } from "@/lib/brand";
 import { SITE_URL } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -11,8 +13,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: `${brand.name}: ${brand.short}`, template: `%s · ${brand.name}` },
   description: brand.description,
+  appleWebApp: { capable: true, title: brand.name, statusBarStyle: "default" },
   openGraph: { title: brand.name, description: brand.description, siteName: brand.name, type: "website" },
 };
+
+export const viewport: Viewport = { themeColor: ACCENT };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();

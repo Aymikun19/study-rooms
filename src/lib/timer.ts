@@ -58,3 +58,50 @@ export function focusCounts(log: string[], now = new Date()) {
 
 export const isRunning = (startedAt: string | null, durationSec: number, now = Date.now()) =>
   Boolean(startedAt) && Date.parse(startedAt!) + durationSec * 1000 > now;
+
+/** Database columns that drive the shared timer. */
+export type TimerPatch = {
+  timer_mode: "focus" | "break";
+  timer_duration_sec: number;
+  timer_started_at: string | null;
+  focus_remaining_sec: number | null;
+};
+
+export type Lengths = { focus: number; brk: number };
+
+export function startPatch(mode: "focus" | "break", lengths: Lengths, now = Date.now()): TimerPatch {
+  return {
+    timer_mode: mode,
+    timer_duration_sec: (mode === "focus" ? lengths.focus : lengths.brk) * 60,
+    timer_started_at: new Date(now).toISOString(),
+    focus_remaining_sec: null,
+  };
+}
+
+/** Pausing focus starts the break straight away and remembers how much focus time was left. */
+export function pausePatch(t: TimerState, lengths: Lengths, now = Date.now()): TimerPatch | null {
+  if (t.mode !== "focus" || !t.startedAt) return null;
+  const left = remaining(t, now);
+  if (left <= 0) return null;
+  return {
+    timer_mode: "break",
+    timer_duration_sec: lengths.brk * 60,
+    timer_started_at: new Date(now).toISOString(),
+    focus_remaining_sec: left,
+  };
+}
+
+/** Back to focus with exactly the time that was left when it was paused. */
+export function resumePatch(focusRemaining: number | null, now = Date.now()): TimerPatch | null {
+  if (!focusRemaining || focusRemaining <= 0) return null;
+  return {
+    timer_mode: "focus",
+    timer_duration_sec: focusRemaining,
+    timer_started_at: new Date(now).toISOString(),
+    focus_remaining_sec: null,
+  };
+}
+
+export function resetPatch(lengths: Lengths): TimerPatch {
+  return { timer_mode: "focus", timer_duration_sec: lengths.focus * 60, timer_started_at: null, focus_remaining_sec: null };
+}

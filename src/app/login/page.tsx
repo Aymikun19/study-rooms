@@ -2,8 +2,8 @@ import { Check } from "lucide-react";
 import { brand } from "@/lib/brand";
 import { AuthForm } from "./AuthForm";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; mode?: string }> }) {
-  const { next, mode } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; mode?: string; error?: string }> }) {
+  const { next, mode, error } = await searchParams;
   return (
     <div className="grid min-h-[75vh] place-items-center py-4">
       <div className="card grid w-full max-w-4xl overflow-hidden lg:grid-cols-2">
@@ -26,7 +26,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </div>
         <p className="text-sm text-white/70">Built by Olopade Oreoluwa</p>
       </section>
-      <section className="grid place-items-center px-6 py-12 sm:px-12">
+      <section className="grid place-items-center gap-4 px-6 py-12 sm:px-12">
+        {error === "link" && <p role="alert" className="w-full max-w-sm rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">That link has expired or was already used. Request a new one.</p>}
         <AuthForm next={next ?? "/"} initialMode={mode === "signup" ? "signup" : "signin"} />
       </section>
       </div>

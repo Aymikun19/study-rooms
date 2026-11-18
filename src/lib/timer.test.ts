@@ -41,3 +41,33 @@ describe("clampMinutes", () => {
     expect(clampMinutes("break", Number.NaN)).toBe(1);
   });
 });
+
+describe("pause, resume and reset", () => {
+  const lengths = { focus: 25, brk: 5 };
+  const t0 = Date.parse("2026-11-18T10:00:00Z");
+
+  it("pausing focus starts the break and keeps the focus time left", async () => {
+    const { pausePatch } = await import("./timer");
+    const p = pausePatch({ mode: "focus", durationSec: 1500, startedAt: new Date(t0).toISOString() }, lengths, t0 + 600_000);
+    expect(p).toEqual({ timer_mode: "break", timer_duration_sec: 300, timer_started_at: new Date(t0 + 600_000).toISOString(), focus_remaining_sec: 900 });
+  });
+
+  it("does not pause a break, an idle timer or a finished focus", async () => {
+    const { pausePatch } = await import("./timer");
+    expect(pausePatch({ mode: "break", durationSec: 300, startedAt: new Date(t0).toISOString() }, lengths, t0)).toBeNull();
+    expect(pausePatch({ mode: "focus", durationSec: 1500, startedAt: null }, lengths, t0)).toBeNull();
+    expect(pausePatch({ mode: "focus", durationSec: 1500, startedAt: new Date(t0).toISOString() }, lengths, t0 + 2_000_000)).toBeNull();
+  });
+
+  it("resumes focus with exactly what was left", async () => {
+    const { resumePatch } = await import("./timer");
+    expect(resumePatch(900, t0)).toEqual({ timer_mode: "focus", timer_duration_sec: 900, timer_started_at: new Date(t0).toISOString(), focus_remaining_sec: null });
+    expect(resumePatch(null, t0)).toBeNull();
+  });
+
+  it("start and reset use the room lengths", async () => {
+    const { startPatch, resetPatch } = await import("./timer");
+    expect(startPatch("break", lengths, t0).timer_duration_sec).toBe(300);
+    expect(resetPatch(lengths)).toEqual({ timer_mode: "focus", timer_duration_sec: 1500, timer_started_at: null, focus_remaining_sec: null });
+  });
+});

@@ -12,8 +12,8 @@ type R = {
   timer_started_at: string | null; timer_duration_sec: number; created_at: string; created_by: string;
 };
 
-export default async function Lobby({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q = "" } = await searchParams;
+export default async function Lobby({ searchParams }: { searchParams: Promise<{ q?: string; deleted?: string }> }) {
+  const { q = "", deleted } = await searchParams;
   const { supabase, user } = await getUser();
   if (!user) return <Landing />;
   let query = supabase
@@ -38,6 +38,7 @@ export default async function Lobby({ searchParams }: { searchParams: Promise<{ 
         <p className="eyebrow">Lobby</p>
         <h1 className="page-title mt-1">Study rooms</h1>
       </div>
+      {deleted && <p role="status" className="card border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">That room was deleted by its creator.</p>}
       <CreateRoomForm />
       <RoomSearch q={q} />
       {rooms.length === 0 ? (

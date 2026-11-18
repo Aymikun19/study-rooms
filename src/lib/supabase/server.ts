@@ -22,12 +22,12 @@ export async function createClient() {
 }
 
 /** Returns the signed-in user or redirects to /login. */
-export async function requireUser() {
+export async function requireUser(next?: string) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
   return { supabase, user };
 }
 

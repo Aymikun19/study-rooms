@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { PasswordInput } from "@/components/kit/PasswordInput";
 import { authenticate, type AuthState } from "./actions";
@@ -43,6 +44,7 @@ export function AuthForm({ next, initialMode = "signin" }: { next: string; initi
         <span>Password</span>
         <PasswordInput name="password" required minLength={6} autoComplete={mode === "signin" ? "current-password" : "new-password"} />
         {mode === "signup" && <small className="text-xs text-stone-500">At least 6 characters.</small>}
+        {mode === "signin" && <Link href="/forgot" className="justify-self-end text-xs text-stone-500 hover:text-accent">Forgot password?</Link>}
       </label>
       {state.error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
       {state.info && <p role="status" className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{state.info}</p>}

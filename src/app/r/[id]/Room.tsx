@@ -1,14 +1,16 @@
 "use client";
 
-import { Bell, BellOff, Brain, Coffee, Flame, Loader2, Lock, RotateCcw, SendHorizontal, Users } from "lucide-react";
+import { Flame, Loader2, Lock, SendHorizontal, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DB_SCHEMA } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/client";
-import { focusCounts, logFocusSession, mmss, progress, readFocusLog, remaining, type TimerState } from "@/lib/timer";
+import { focusCounts, logFocusSession, readFocusLog, remaining, type TimerPatch, type TimerState } from "@/lib/timer";
 import { BUCKET, roomPath } from "@/lib/files";
 import { AttachmentView, FilePicker, VoiceRecorder, type Attachment } from "./Media";
-import { TimerEditor } from "./TimerEditor";
+import { TimerCard } from "./TimerCard";
+import { DeleteRoom } from "./DeleteRoom";
+import { useRouter } from "next/navigation";
 import { CopyButton } from "@/components/kit/CopyButton";
 
 type Msg = {
@@ -19,6 +21,7 @@ type Msg = {
 type RoomRow = {
   id: string; name: string; topic: string | null; visibility?: "public" | "private"; focus_minutes?: number; break_minutes?: number;
   timer_mode: "focus" | "break"; timer_duration_sec: number; timer_started_at: string | null;
+  focus_remaining_sec?: number | null; created_by?: string;
 };
 
 const attachmentOf = (m: Msg): Attachment | null =>
@@ -59,6 +62,7 @@ function beep() {
 
 export function Room({ room, initialMessages, me, link }: { room: RoomRow; initialMessages: Msg[]; me: Me; link: string }) {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const [messages, setMessages] = useState(initialMessages);
   const [online, setOnline] = useState<Me[]>([]);
   const [typing, setTyping] = useState<Record<string, { name: string; at: number }>>({});
@@ -68,6 +72,7 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
   const [alerts, setAlerts] = useState(false);
   const [counts, setCounts] = useState({ today: 0, week: 0 });
   const [lengths, setLengths] = useState({ focus: room.focus_minutes ?? 25, brk: room.break_minutes ?? 5 });
+  const [focusRemaining, setFocusRemaining] = useState<number | null>(room.focus_remaining_sec ?? null);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -99,7 +104,11 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
       .on("postgres_changes", { event: "UPDATE", schema: DB_SCHEMA, table: "rooms", filter: `id=eq.${room.id}` }, (p) => {
         const r = p.new as RoomRow;
         setTimer({ mode: r.timer_mode, durationSec: r.timer_duration_sec, startedAt: r.timer_started_at });
-        if (r.focus_minutes && r.break_minutes) setLengths({ focus: r.focus_minutes, brk: r.break_minutes });
+        if (r.focus_minutes && r.break_minutes) setLengths((l) => (l.focus === r.focus_minutes && l.brk === r.break_minutes ? l : { focus: r.focus_minutes!, brk: r.break_minutes! }));
+        setFocusRemaining(r.focus_remaining_sec ?? null);
+      })
+      .on("postgres_changes", { event: "DELETE", schema: DB_SCHEMA, table: "rooms", filter: `id=eq.${room.id}` }, () => {
+        if (room.created_by !== me.id) router.replace("/?deleted=1");
       })
       .on("broadcast", { event: "typing" }, ({ payload }) => {
         const p = payload as Me;
@@ -116,7 +125,7 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, room.id, me]);
+  }, [supabase, room.id, me, router]);
 
   const timerRef = useRef(timer);
   const alertsRef = useRef(alerts);
@@ -151,8 +160,6 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length]);
 
-  const left = remaining(timer, now);
-  const running = Boolean(timer.startedAt) && left > 0;
 
   // Signed URLs for voice notes and files (the bucket is private; links expire after an hour).
   useEffect(() => {
@@ -182,11 +189,17 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
     if (error) setSendError(error.message);
   }
 
-  async function saveLengths(focus: number, brk: number) {
-    const patch: Record<string, unknown> = { focus_minutes: focus, break_minutes: brk };
-    if (!timer.startedAt || remaining(timer, Date.now()) === 0) patch.timer_duration_sec = (timer.mode === "focus" ? focus : brk) * 60;
+  async function saveLengths(l: { focus: number; brk: number }) {
+    const patch: Record<string, unknown> = { focus_minutes: l.focus, break_minutes: l.brk };
+    if (!timer.startedAt) patch.timer_duration_sec = (timer.mode === "focus" ? l.focus : l.brk) * 60;
+    setLengths(l);
     await supabase.from("rooms").update(patch).eq("id", room.id);
-    setLengths({ focus, brk });
+  }
+
+  async function patchTimer(p: TimerPatch) {
+    setTimer({ mode: p.timer_mode, durationSec: p.timer_duration_sec, startedAt: p.timer_started_at });
+    setFocusRemaining(p.focus_remaining_sec);
+    await supabase.from("rooms").update(p).eq("id", room.id);
   }
 
   const sendTyping = useCallback(() => {
@@ -203,13 +216,6 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
     await supabase.from("messages").insert({ room_id: room.id, author: me.name, body });
   }
 
-  async function setTimerRemote(mode: "focus" | "break", start: boolean) {
-    await supabase
-      .from("rooms")
-      .update({ timer_mode: mode, timer_duration_sec: (mode === "focus" ? lengths.focus : lengths.brk) * 60, timer_started_at: start ? new Date().toISOString() : null })
-      .eq("id", room.id);
-  }
-
   async function toggleAlerts() {
     if (alerts) return setAlerts(false);
     if (typeof Notification === "undefined") return;
@@ -218,9 +224,6 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
   }
 
   const typers = Object.values(typing).filter((t) => now - t.at < 4000).map((t) => t.name);
-  const pct = progress(timer, now);
-  const R = 78;
-  const C = 2 * Math.PI * R;
 
   return (
     <div className="grid gap-6">
@@ -230,7 +233,10 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
           <h1 className="page-title mt-1 flex items-center gap-2">{room.name}{room.visibility === "private" && <span className="badge"><Lock size={12} aria-hidden /> Private</span>}</h1>
           {room.topic && <p className="mt-1 text-sm text-stone-500">{room.topic}</p>}
         </div>
-        <CopyButton value={link} label="Copy invite link" />
+        <div className="flex flex-wrap items-center gap-2">
+          <CopyButton value={link} label="Copy invite link" />
+          {room.created_by === me.id && <DeleteRoom roomId={room.id} name={room.name} />}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -292,34 +298,16 @@ export function Room({ room, initialMessages, me, link }: { room: RoomRow; initi
         </section>
 
         <aside className="grid h-fit gap-4">
-          <section className="card grid justify-items-center gap-4 p-6" aria-label="Shared timer">
-            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-              {timer.mode === "focus" ? <Brain size={14} aria-hidden /> : <Coffee size={14} aria-hidden />}
-              {timer.mode === "focus" ? "Focus" : "Break"}
-            </p>
-            <div className="relative grid size-44 place-items-center">
-              <svg viewBox="0 0 180 180" className="absolute inset-0 -rotate-90" aria-hidden>
-                <circle cx="90" cy="90" r={R} fill="none" stroke="#f5f5f4" strokeWidth="10" />
-                <circle cx="90" cy="90" r={R} fill="none" stroke="var(--accent)" strokeWidth="10" strokeLinecap="round"
-                  strokeDasharray={C} strokeDashoffset={C * (1 - (timer.startedAt ? pct : 0))} className="transition-[stroke-dashoffset] duration-1000 ease-linear" />
-              </svg>
-              <div className="text-center">
-                <p className="font-mono text-4xl font-semibold tabular-nums" role="timer" aria-live="off">{mmss(left)}</p>
-                <p className="text-xs text-stone-500">{running ? "Synced live" : left === 0 ? "Time's up" : "Ready"}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              <button onClick={() => setTimerRemote("focus", true)} className="btn !py-2 text-xs"><Brain size={14} aria-hidden /> Focus {lengths.focus}</button>
-              <button onClick={() => setTimerRemote("break", true)} className="btn-outline !py-2 text-xs"><Coffee size={14} aria-hidden /> Break {lengths.brk}</button>
-              <button onClick={() => setTimerRemote(timer.mode, false)} className="btn-outline !py-2 text-xs" aria-label="Reset timer"><RotateCcw size={14} aria-hidden /></button>
-            </div>
-            <div className="flex flex-wrap justify-center gap-1">
-            <TimerEditor focus={lengths.focus} brk={lengths.brk} onSave={saveLengths} />
-            <button onClick={toggleAlerts} className="btn-ghost text-xs" aria-pressed={alerts}>
-              {alerts ? <Bell size={14} aria-hidden /> : <BellOff size={14} aria-hidden />} {alerts ? "Alerts on" : "Turn on alerts"}
-            </button>
-            </div>
-          </section>
+          <TimerCard
+            timer={timer}
+            focusRemaining={focusRemaining}
+            lengths={lengths}
+            now={now}
+            alerts={alerts}
+            onToggleAlerts={toggleAlerts}
+            onPatch={patchTimer}
+            onSaveLengths={saveLengths}
+          />
 
           <section className="card p-5" aria-label="Your focus stats">
             <p className="flex items-center gap-1.5 text-sm font-semibold"><Flame size={16} className="text-accent" aria-hidden /> Your focus</p>

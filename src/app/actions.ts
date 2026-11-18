@@ -33,3 +33,22 @@ export async function joinRoom(roomId: string, _prev: FormState, form: FormData)
   if (data !== "ok") return { error: "That password is not right." };
   redirect(`/r/${roomId}`);
 }
+
+export async function deleteRoom(roomId: string): Promise<FormState> {
+  const { supabase, user } = await requireUser();
+  const { data: room } = await supabase.from("rooms").select("created_by").eq("id", roomId).maybeSingle();
+  if (!room || room.created_by !== user.id) return { error: "Only the person who created this room can delete it." };
+
+  // Remove shared files first: room-files/<room>/<user>/<file>
+  const bucket = supabase.storage.from("room-files");
+  const { data: folders } = await bucket.list(roomId, { limit: 1000 });
+  for (const f of folders ?? []) {
+    const { data: files } = await bucket.list(`${roomId}/${f.name}`, { limit: 1000 });
+    const paths = (files ?? []).map((x) => `${roomId}/${f.name}/${x.name}`);
+    if (paths.length) await bucket.remove(paths);
+  }
+
+  const { error } = await supabase.from("rooms").delete().eq("id", roomId);
+  if (error) return { error: error.message };
+  redirect("/");
+}

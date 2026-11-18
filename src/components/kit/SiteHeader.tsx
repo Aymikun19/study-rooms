@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { brand } from "@/lib/brand";
 
 export function SiteHeader({ email }: { email?: string | null }) {
@@ -38,6 +38,7 @@ export function SiteHeader({ email }: { email?: string | null }) {
                   </Link>
                 ))}
                 <div className="my-1 border-t border-stone-100" />
+                <Link href="/account" className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-stone-100"><Settings size={15} aria-hidden /> Account settings</Link>
                 <form action="/auth/signout" method="post">
                   <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-red-600 hover:bg-red-50">
                     <LogOut size={15} aria-hidden /> Sign out
